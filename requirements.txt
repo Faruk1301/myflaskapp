@@ -1,1 +1,4 @@
-
+flask
+flask-oidc
+azure-identity
+azure-keyvault-secrets
