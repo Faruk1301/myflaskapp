@@ -1,4 +1,7 @@
 flask
-flask-oidc
+flask-session
+msal
 azure-identity
 azure-keyvault-secrets
+gunicorn
+
