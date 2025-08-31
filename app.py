@@ -6,7 +6,7 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "a_random_secret_key_here"   # Change this to something strong
+app.config["SECRET_KEY"] = "a_strong_random_secret_key_here"   # 🔑 Change to something secure
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
@@ -17,17 +17,12 @@ credential = DefaultAzureCredential()
 kv_client = SecretClient(vault_url=KV_URI, credential=credential)
 
 # ------------------ Load Azure AD App Credentials ------------------
-# Store these in Key Vault first:
-#   ClientId  -> your App (client) ID
-#   ClientSecret -> your App secret
-#   TenantId  -> your Directory (tenant) ID
-
 CLIENT_ID = kv_client.get_secret("ClientId").value
-CLIENT_SECRET = kv_client.get_secret("ClientSecret").value
+CLIENT_SECRET = kv_client.get_secret("ClientSecret").value   # ✅ Secret *Value* from Azure
 TENANT_ID = kv_client.get_secret("TenantId").value
 
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_PATH = "/getAToken"
+REDIRECT_PATH = "/getAToken"   # must exactly match Azure App Registration
 SCOPE = ["User.Read"]
 
 # MSAL Confidential Client
@@ -58,7 +53,8 @@ def login():
     auth_url = msal_app.get_authorization_request_url(
         SCOPE,
         state=state,
-        redirect_uri=url_for("authorized", _external=True)
+        # ✅ Always use deployed Azure redirect URI
+        redirect_uri="https://mydemo1-dnd3cza2dxafc8bu.centralindia-01.azurewebsites.net/getAToken"
     )
     return redirect(auth_url)
 
@@ -74,7 +70,8 @@ def authorized():
     result = msal_app.acquire_token_by_authorization_code(
         request.args['code'],
         scopes=SCOPE,
-        redirect_uri=url_for("authorized", _external=True)
+        # ✅ Again, deployed Azure redirect URI
+        redirect_uri="https://mydemo1-dnd3cza2dxafc8bu.centralindia-01.azurewebsites.net/getAToken"
     )
 
     if "id_token_claims" in result:
@@ -88,10 +85,13 @@ def logout():
     session.clear()
     return redirect(
         f"{AUTHORITY}/oauth2/v2.0/logout"
-        f"?post_logout_redirect_uri={url_for('index', _external=True)}"
+        f"?post_logout_redirect_uri=https://mydemo1-dnd3cza2dxafc8bu.centralindia-01.azurewebsites.net/"
     )
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # ✅ Azure App Service expects the app to listen on 0.0.0.0 and a dynamic port
+    import os
+    port = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
+    app.run(host="0.0.0.0", port=port)
 
